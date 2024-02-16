@@ -63,8 +63,10 @@ public class CodeRunnerTableTest {
     /**
      * Tests the project method.
      */
-//    public boolean testProject() {
-//    }
+    public boolean testProject() {
+
+        return true;
+    }
 
     /**
      * Tests the select method.

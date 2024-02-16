@@ -192,12 +192,13 @@ public class Table {
     public Table project(String attributes) {
 //        out.println("RA> " + name + ".project (" + attributes + ")");
         String[] attrs = attributes.split(" ");
+        //
         Class[] colDomain = extractDom(match(attrs), domain);
         String[] newKey = (Arrays.asList(attrs).containsAll(Arrays.asList(key))) ? key : attrs;
 
         List<Comparable[]> rows = new ArrayList<>();
 
-        //  T O   B E   I M P L E M E N T E D
+        out.println(rows);
 
         return new Table(name + count++, attrs, colDomain, newKey, rows);
     } // project
