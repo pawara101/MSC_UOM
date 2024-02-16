@@ -190,18 +190,32 @@ public class Table {
      * @return a table of projected tuples
      */
     public Table project(String attributes) {
-//        out.println("RA> " + name + ".project (" + attributes + ")");
+        // Split the attributes string into individual attribute names
         String[] attrs = attributes.split(" ");
-        //
+
+        // Get the column domain for the projected attributes
         Class[] colDomain = extractDom(match(attrs), domain);
+
+        // Determine the key for the projected table
         String[] newKey = (Arrays.asList(attrs).containsAll(Arrays.asList(key))) ? key : attrs;
 
+        // Create a list to store the projected rows
         List<Comparable[]> rows = new ArrayList<>();
 
-        out.println(rows);
+        // Iterate through the rows of the current table
+        for (Comparable[] row : this.rows) {
+            // Create a new row with only the projected attributes
+            Comparable[] projectedRow = new Comparable[attrs.length];
+            for (int i = 0; i < attrs.length; i++) {
+                int index = match(attrs[i]); // Get the index of the attribute in the current table
+                projectedRow[i] = row[index]; // Copy the value at that index to the projected row
+            }
+            rows.add(projectedRow);  // Add the projected row to the list
+        }
 
+        // Create and return the new Table object
         return new Table(name + count++, attrs, colDomain, newKey, rows);
-    } // project
+    }
 
     /************************************************************************************
      * Select the tuples satisfying the given key predicate (key = value).  Use an index
@@ -211,14 +225,18 @@ public class Table {
      * @return a table with the tuple satisfying the key predicate
      */
     public Table select(KeyType keyVal) {
-//        out.println("RA> " + name + ".select (" + keyVal + ")");
+        List<Comparable[]> selectedRows = new ArrayList<>();
 
-        List<Comparable[]> rows = new ArrayList<>();
+        // Check if the key is present in the index
+        if (index.containsKey(keyVal)) {
+            // If found, add the corresponding tuple to the result rows
+            selectedRows.add(index.get(keyVal));
+        }
 
-        //  T O   B E   I M P L E M E N T E D
-
-        return new Table(name + count++, attribute, domain, key, rows);
+        // Return a new table with the selected rows
+        return new Table(name + count++, attribute, domain, key, selectedRows);
     } // select
+
 
     /************************************************************************************
      * Union this table and table2.  Check that the two tables are compatible.
@@ -229,15 +247,38 @@ public class Table {
      * @return a table representing the union
      */
     public Table union(Table table2) {
-//        out.println("RA> " + name + ".union (" + table2.name + ")");
-        if (!compatible(table2)) return null;
+        // Check if the tables are compatible
+        if (!compatible(table2)) {
+            out.println("RA> " + name + ".union (" + table2.name + ") - Incompatible tables");
+            return null;
+        }
 
-        List<Comparable[]> rows = new ArrayList<>();
+        List<Comparable[]> unionRows = new ArrayList<>();
 
-        //  T O   B E   I M P L E M E N T E D
+        // Add tuples from the first table
+        unionRows.addAll(tuples);
 
-        return new Table(name + count++, attribute, domain, key, rows);
-    } // union
+        // Add tuples from the second table if they are not duplicates
+        for (Comparable[] tuple2 : table2.tuples) {
+            if (!containsTuple(unionRows, tuple2)) {
+                unionRows.add(tuple2);
+            }
+        }
+
+        // Return a new table with the union result
+        return new Table(name + count++, attribute, domain, key, unionRows);
+    }
+
+    // Helper method to check if a list of tuples contains a specific tuple
+    private boolean containsTuple(List<Comparable[]> tuples, Comparable[] targetTuple) {
+        for (Comparable[] tuple : tuples) {
+            if (Arrays.equals(tuple, targetTuple)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     /************************************************************************************
      * Take the difference of this table and table2.  Check that the two tables are
@@ -249,15 +290,29 @@ public class Table {
      * @return a table representing the difference
      */
     public Table minus(Table table2) {
-//        out.println("RA> " + name + ".minus (" + table2.name + ")");
-        if (!compatible(table2)) return null;
+        // Check if the tables are compatible
+        if (!compatible(table2)) {
+            out.println("RA> " + name + ".minus (" + table2.name + ") - Incompatible tables");
+            return null;
+        }
 
-        List<Comparable[]> rows = new ArrayList<>();
+        List<Comparable[]> minusRows = new ArrayList<>();
 
-        //  T O   B E   I M P L E M E N T E D
+        // Iterate through tuples in the first table
+        for (Comparable[] tuple1 : tuples) {
+            // Check if the tuple is not present in the second table
+            if (!containsTuple(table2.tuples, tuple1)) {
+                minusRows.add(tuple1);
+            }
+        }
 
-        return new Table(name + count++, attribute, domain, key, rows);
-    } // minus
+        // Return a new table with the minus result
+        return new Table(name + count++, attribute, domain, key, minusRows);
+    }
+
+
+
+
 
     /************************************************************************************
      * Join this table and table2 by performing an "natural join".  Tuples from both tables
@@ -270,16 +325,76 @@ public class Table {
      * @return a table with tuples satisfying the equality predicate
      */
     public Table naturalJoin(Table table2) {
-//        out.println("RA> " + name + ".join (" + table2.name + ")");
+        // Check if the tables are compatible
+        if (!compatible(table2)) {
+            out.println("RA> " + name + ".naturalJoin (" + table2.name + ") - Incompatible tables");
+            return null;
+        }
 
-        List<Comparable[]> rows = new ArrayList<>();
+        List<Comparable[]> joinRows = new ArrayList<>();
 
-        //  T O   B E   I M P L E M E N T E D
+        // Identify common attributes between the two tables
+        List<String> commonAttributes = findCommonAttributes(attribute, table2.attribute);
 
-        // FIX - eliminate duplicate columns
-        return new Table(name + count++, ArrayUtil.concat(attribute, table2.attribute),
-                ArrayUtil.concat(domain, table2.domain), key, rows);
-    } // join
+        // Eliminate duplicate columns
+        String[] newAttribute = eliminateDuplicateColumns(attribute, table2.attribute, commonAttributes);
+        Class[] newDomain = eliminateDuplicateColumns(domain, table2.domain, commonAttributes);
+
+        // Iterate through tuples in the first table
+        for (Comparable[] tuple1 : tuples) {
+            // Iterate through tuples in the second table
+            for (Comparable[] tuple2 : table2.tuples) {
+                // Check if tuples have common attributes
+                if (tuplesHaveCommonAttributes(tuple1, tuple2, commonAttributes)) {
+                    // Combine tuples and add to result
+                    Comparable[] joinedTuple = ArrayUtil.concat(tuple1, tuple2);
+                    joinRows.add(joinedTuple);
+                }
+            }
+        }
+
+        // Return a new table with the natural join result
+        return new Table(name + count++, newAttribute, newDomain, key, joinRows);
+    }
+
+    // Helper method to find common attributes between two attribute arrays
+    private List<String> findCommonAttributes(String[] attributes1, String[] attributes2) {
+        List<String> commonAttributes = new ArrayList<>();
+        for (String attr1 : attributes1) {
+            for (String attr2 : attributes2) {
+                if (attr1.equals(attr2)) {
+                    commonAttributes.add(attr1);
+                    break;
+                }
+            }
+        }
+        return commonAttributes;
+    }
+
+    // Helper method to eliminate duplicate columns
+    private <T> T[] eliminateDuplicateColumns(T[] array1, T[] array2, List<String> commonAttributes) {
+        List<T> resultList = new ArrayList<>(Arrays.asList(array1));
+        for (String commonAttr : commonAttributes) {
+            // Rename duplicate columns in the second array
+            int index2 = Arrays.asList(array2).indexOf(commonAttr);
+            array2[index2] = (T) (commonAttr + "2");
+        }
+        resultList.addAll(Arrays.asList(array2));
+        return resultList.toArray(Arrays.copyOf(array1, 0));
+    }
+
+    // Helper method to check if tuples have common attributes
+    private boolean tuplesHaveCommonAttributes(Comparable[] tuple1, Comparable[] tuple2, List<String> commonAttributes) {
+        for (String commonAttr : commonAttributes) {
+            int index1 = Arrays.asList(attribute).indexOf(commonAttr);
+            int index2 = Arrays.asList(table2.attribute).indexOf(commonAttr);
+            if (!tuple1[index1].equals(tuple2[index2])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 
     /************************************************************************************
      * Return the column position for the given attribute name.

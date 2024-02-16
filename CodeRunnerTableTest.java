@@ -64,6 +64,11 @@ public class CodeRunnerTableTest {
      * Tests the project method.
      */
     public boolean testProject() {
+        Table movie = this.createMovieTable();
+        Table studio = this.createStudioTable();
+
+        Table proj_table = movie.project("year");
+
 
         return true;
     }
