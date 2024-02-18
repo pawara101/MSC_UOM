@@ -1,9 +1,18 @@
+import java.util.*;
 public class CodeRunnerTableTest {
 
     public static void main(String[] args) {
         CodeRunnerTableTest tst = new CodeRunnerTableTest();
 
+        System.out.println("----EquiJoin----");
         if (tst.testEquiJoin()) {
+            System.out.println("true");
+        } else {
+            System.out.println("Your \"Equi Join\" method is incomplete or wrong.");
+        }
+
+        System.out.println("----Projection----");
+        if (tst.testProject()) {
             System.out.println("true");
         } else {
             System.out.println("Your \"Equi Join\" method is incomplete or wrong.");
@@ -69,7 +78,7 @@ public class CodeRunnerTableTest {
 
         Table proj_table = movie.project("year");
 
-
+        
         return true;
     }
 
